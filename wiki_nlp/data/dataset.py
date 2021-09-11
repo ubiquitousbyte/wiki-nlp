@@ -17,6 +17,7 @@ from torch.utils.data import (
     DataLoader
 )
 from torchtext.vocab import vocab
+
 from wiki_nlp.data.domain import Document
 from wiki_nlp.data.service import DocumentService
 
@@ -86,7 +87,7 @@ def paragraph_reader(start: int, end: int) -> List[Dict[str, List[str]]]:
     return asyncio.run(read_and_process_paragraphs(start, end))
 
 class WikiDataStreamer(dataset.IterableDataset):
-    # A multithreaded data streamer that extracts document batches 
+    # A concurrent data streamer that extracts document batches 
     # from the document service 
 
     def __init__(self, start: int, end: int, reader: ReaderCallback):
@@ -110,6 +111,9 @@ class WikiDataStreamer(dataset.IterableDataset):
         return iter(self._reader(iter_start, iter_end))
 
 class WikiExample:
+    # An example used for training
+    # The example consists of its unique document id and 
+    # a list of words that are part of the document 
 
     def __init__(self, id: str, text: List[str]):
         self.id = id 
@@ -122,7 +126,8 @@ class WikiExample:
         return self.__str__()
 
 class WikiDataset(dataset.Dataset):
-
+    # A Wikipedia Dataset consists of a map of examples, and a vocabulary 
+    # constructed from those examples 
     def __init__(self, streamer: WikiDataStreamer, num_workers: int):
         super(WikiDataset, self).__init__()
         loader = DataLoader(streamer, num_workers=num_workers)
@@ -145,7 +150,3 @@ class WikiDataset(dataset.Dataset):
 def load_dataset(reader: ReaderCallback, start: int = 0, end: int = 2000) -> WikiDataset:
     streamer = WikiDataStreamer(start=start, end=end, reader=reader)
     return WikiDataset(streamer, num_workers=multiprocessing.cpu_count())
-
-if __name__ == '__main__':
-    ds = load_dataset(document_reader)
-    print(ds._examples)

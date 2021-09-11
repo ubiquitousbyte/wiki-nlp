@@ -1,7 +1,7 @@
 import numpy as np 
 from numpy.random import default_rng
 
-from wiki_nlp.data.dataset import WikiDataset, document_reader, load_dataset
+from wiki_nlp.data.dataset import WikiDataset
 
 class NoiseSampler:
     # The sampler allows us to avoid computing softmax's normalizing constant
@@ -31,7 +31,3 @@ class NoiseSampler:
 
     def sample(self):
         return self._rng.choice(self._ps.shape[0], self._noise_size, p=self._ps).tolist()
-
-if __name__ == '__main__':
-    ns = NoiseSampler(load_dataset(document_reader), 10)
-    print(ns.sample()) 

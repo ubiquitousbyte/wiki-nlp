@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn 
 
 class DM(nn.Module):
+    # An implementation of the Distributed Memory Model of Paragraph Vectors
+    # proposed by Mikholov et. al. in 2014 in the paper 
+    # Distributed Representations of Sentences and Documents
+    # https://arxiv.org/abs/1405.4053
 
     def __init__(self, embedding_dim: int, n_docs: int, n_words: int):
         super(DM, self).__init__()

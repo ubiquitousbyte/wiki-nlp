@@ -3,8 +3,8 @@ import os
 import signal
 from typing import Callable
 
-from numpy import ceil
 import torch
+from math import ceil 
 
 from wiki_nlp.models.noise_sampler import NoiseSampler
 from wiki_nlp.data.dataset import (
@@ -95,7 +95,6 @@ class _BatchState(object):
                                - ctx_size 
                                - (ex_count - batch_size))
 
-
 class _NoiseGenerator(object):
 
     def __init__(
@@ -133,7 +132,7 @@ class _NoiseGenerator(object):
 
             rem = len(self.dataset[doc_id].text) - 1 - self.ctx_size
             if word_id <= rem:
-                # There are contexts yet to be processed
+                # There are contexts in the current document that are yet to be processed
                 self._populate_batch(doc_id, word_id, batch)
                 word_id += 1
             else:
@@ -188,6 +187,7 @@ class _NoiseGenerator(object):
         return ceil(examples / self.batch_size)
 
 class BatchGenerator(object):
+    # A concurrent batch generator 
 
     def __init__(
         self, 
@@ -216,7 +216,7 @@ class BatchGenerator(object):
         return len(self._noise_generator)
 
     def start(self):
-        self._queue = multiprocessing.Queue(maxsize=self.max_size)
+        self._queue = multiprocessing.Queue()
         self._stop_event = multiprocessing.Event()
 
         for _ in range(self.num_workers):
@@ -234,7 +234,7 @@ class BatchGenerator(object):
                 self._stop_event.set()
 
     def __getstate__(self):
-        # Python can't picke a list of processes, because a process
+        # Python can't pickle a list of processes, because a process
         # is not serializable. Took me ages to figure this one out. 
         state = self.__dict__.copy()
         state['_workers'] = None
@@ -264,7 +264,7 @@ class BatchGenerator(object):
             yield self._queue.get()
 
 if __name__ == '__main__':
-    ds = load_dataset(document_reader, start=0, end=64)
+    ds = load_dataset(document_reader, start=0, end=2000)
     batch_generator = BatchGenerator(
         ds, 
         batch_size=64, 
@@ -276,11 +276,5 @@ if __name__ == '__main__':
     batch_generator.start()
     for i in range(0, 2000):
         batch = next(batch_generator.forward())
-        word = batch.tn_ids[0][0]
-        print('Center word', ds.vocab.get_itos()[word])
-        context = batch.ctx_ids[0]
-        print([ds.vocab.get_itos()[c] for c in context])
-
+        print(batch.doc_ids.size())
     batch_generator.stop()
-    
-    
