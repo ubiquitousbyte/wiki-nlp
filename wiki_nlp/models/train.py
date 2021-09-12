@@ -1,5 +1,6 @@
 from sys import stdout
 from typing import Generator 
+from time import time
 
 import torch
 from torch.optim import Adam 
@@ -10,6 +11,7 @@ from wiki_nlp.models.ngloss import NegativeSamplingLoss
 from wiki_nlp.data.dataset import (
     load_dataset,
     document_reader,
+    paragraph_reader,
     WikiDataset
 )
 
@@ -83,13 +85,14 @@ def _print_step(batch_idx: int, epoch_idx: int,  batch_count: int):
     stdout.flush()
 
 if __name__ == '__main__':
-    dataset = load_dataset(document_reader, end=4)
+    dataset = load_dataset(document_reader, end=2000) 
     batch_generator = BatchGenerator(
         dataset=dataset,
-        batch_size=64,
+        batch_size=128,
         ctx_size=4,
         noise_size=8,
         max_size=8,
+        num_workers=4
     )
     batch_generator.start()
     try:

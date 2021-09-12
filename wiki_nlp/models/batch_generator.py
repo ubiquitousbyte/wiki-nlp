@@ -180,7 +180,7 @@ class _NoiseGenerator(object):
         return 0 
 
     def _stoi(self, s: str) -> int:
-        return self._vocab.get_stoi()[s]
+        return self._vocab[s]
 
     def __len__(self):
         examples = sum(self._example_counter(d) for d in self.dataset)
@@ -262,19 +262,3 @@ class BatchGenerator(object):
     def forward(self):
         while self.is_running():
             yield self._queue.get()
-
-if __name__ == '__main__':
-    ds = load_dataset(document_reader, start=0, end=2000)
-    batch_generator = BatchGenerator(
-        ds, 
-        batch_size=64, 
-        ctx_size=3, 
-        noise_size=10, 
-        max_size=5,
-        num_workers=8
-    )
-    batch_generator.start()
-    for i in range(0, 2000):
-        batch = next(batch_generator.forward())
-        print(batch.doc_ids.size())
-    batch_generator.stop()
