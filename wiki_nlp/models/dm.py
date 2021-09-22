@@ -13,13 +13,17 @@ class DM(nn.Module):
         self._D = nn.Parameter(
             torch.randn(n_docs, embedding_dim), requires_grad=True 
         )
-        # Input word matrix W -> [V x N]
+        # Input word matrix W -> [V+1 x N]
+        # The last row of the word matrix holds a sentinel vector that can be used 
+        # to map words that should not be updated during the training process 
+        # This is useful when combined with a word subsampler
         self._W = nn.Parameter(
-            torch.randn(n_words, embedding_dim), requires_grad=True 
+            torch.cat((torch.randn(n_words, embedding_dim), torch.zeros(1, embedding_dim))), 
+            requires_grad=True 
         )
         # Output word matrix W' -> [N x V]
         self._Wp = nn.Parameter(
-            torch.FloatTensor(embedding_dim, n_words).zero_(), requires_grad=True 
+            torch.randn(embedding_dim, n_words), requires_grad=True
         )
 
     def forward(self, ctx_ids, doc_ids, target_and_noise_ids):
@@ -29,12 +33,12 @@ class DM(nn.Module):
         #   Let the context word vector batch consist of 5 contexts (one for each document),     
         #   where each context consists of 10 context words 
         #   Then, the executed computation is: 
-        #   [5 x N] + [5 x row_wise_sum[10 x N]] = [5 x N] + [5 x N] = [5 x N]
+        #   [5 x N] + [5 x row_wise_sum([10 x N])] = [5 x N] + [5 x N] = [5 x N]
         #   Thus, we get the aggregated hidden state h for each of the 5 documents in the batch
-        v = torch.add(self._D[doc_ids, :], torch.sum(self._W[ctx_ids, :], dim=1))
+        x = torch.add(self._D[doc_ids, :], torch.sum(self._W[ctx_ids, :], dim=1))
 
         # Step 2 (Hidden -> Output): Compute the similarity between (context, target) and (context, noise_samples)
-        # This operation is implemented as a oneshot 3-dimensional matrix multiplication
+        # This operation is implemented as a oneshot batch matrix multiplication
         # The only requirement is that the target index of the true center word is included in the noise batch
         # Example: 
         #   Let the number of documents be 5 
@@ -46,8 +50,6 @@ class DM(nn.Module):
         #   [5 x 1 x N] x [N x 5 x 11] = [5 x 1 x 11]
         #   We remove the single dimension, so [5 x 1 x 11] becomes [5 x 11] 
         #   Thus, we get the similarity between the hidden state, the negative samples and the true center word for every document 
-        u = torch.bmm(
-            v.unsqueeze(1), self._Wp[:, target_and_noise_ids].permute(1, 0, 2)
-        ).squeeze()
-
-        return u
+        return torch.bmm(
+            x.unsqueeze(1),
+            self._Wp[:, target_and_noise_ids].permute(1, 0, 2)).squeeze()

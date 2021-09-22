@@ -18,12 +18,13 @@ class NoiseSampler:
         dataset: WikiDataset, 
         noise_size: int
     ):
+        self.dataset = dataset 
         self._noise_size = noise_size
         self._vocab = dataset.vocab
         self._counter = dataset.counter
-        self._ps = np.zeros((len(self._vocab) -1),)
+        self._ps = np.zeros((len(self._vocab)),)
         for word, freq in self._counter.items():
-            self._ps[self._vocab[word] - 1] = freq
+            self._ps[self._vocab[word]] = freq
         
         self._ps = np.power(self._ps, 0.75)
         self._ps /= np.sum(self._ps)

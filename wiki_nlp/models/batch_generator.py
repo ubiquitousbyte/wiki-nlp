@@ -7,11 +7,11 @@ import torch
 from math import ceil 
 
 from wiki_nlp.models.noise_sampler import NoiseSampler
+from wiki_nlp.models.word_sampler import WordSampler
+
 from wiki_nlp.data.dataset import (
     WikiDataset,
-    WikiExample, 
-    document_reader, 
-    load_dataset
+    WikiExample,
 )
 
 class _Batch(object): 
@@ -43,8 +43,8 @@ class _BatchState(object):
     def __init__(self, ctx_size: int):
         # The raw values are allocated in shared memory and
         # will be inherited by any child processes of the 
-        # process instantiating this object. Coupled with a mutex, 
-        # these values can be manipulated in parallel. 
+        # process instantiating this object. 
+        # Coupled with a mutex, these values can be manipulated concurrently
         self._doc_id = multiprocessing.RawValue('i', 0)
         self._word_id = multiprocessing.RawValue('i', ctx_size)
         self._mutex = multiprocessing.Lock()
@@ -109,10 +109,11 @@ class _NoiseGenerator(object):
         self.batch_size = batch_size
         self.ctx_size = ctx_size
         self.noise_size = noise_size
-        self.sampler = NoiseSampler(self.dataset, self.noise_size)
+        self.noise_sampler = NoiseSampler(self.dataset, self.noise_size)
+        self.word_sampler = WordSampler(self.dataset)
         self._vocab = self.dataset.vocab
         self._state = state 
-    
+
     def forward(self):
         doc_id, word_id = self._state.forward(
             self.dataset,
@@ -127,20 +128,23 @@ class _NoiseGenerator(object):
             # Populate the batch 
             if doc_id == len(self.dataset):
                 # All documents have been processed
-                # Return the batch
+                # Recompute the sampling probabilities and return the batch 
+                self.word_sampler.recompute_probs()
                 break 
 
             rem = len(self.dataset[doc_id].text) - 1 - self.ctx_size
             if word_id <= rem:
-                # There are contexts in the current document that are yet to be processed
-                self._populate_batch(doc_id, word_id, batch)
+               # Check if the current center word has a high enough probability of being sampled 
+                if self.word_sampler.use_word(word_id):
+                     # There are contexts in the current document that are yet to be processed
+                    self._populate_batch(doc_id, word_id, batch)
                 word_id += 1
             else:
                 # All contexts for this document have been processed
                 # We therefore reset the word index and increment the document index 
                 doc_id += 1
                 word_id = self.ctx_size
-        
+
         batch.torchify()
         return batch 
 
@@ -152,7 +156,7 @@ class _NoiseGenerator(object):
 
         # Construct the document's noise samples
         # Make sure to include the true center word index in the noise at i=0
-        noise = self.sampler.sample()
+        noise = self.noise_sampler.sample()
         noise.insert(0, self._stoi(txt[word_id]))
         batch.tn_ids.append(noise)
 
@@ -163,7 +167,10 @@ class _NoiseGenerator(object):
                    if offset != 0)
         for i in ctx_ids:
             ctx_id = self._stoi(txt[i])
-            ctx.append(ctx_id)
+            if self.word_sampler.use_word(ctx_id):
+                ctx.append(ctx_id)
+            else:
+                ctx.append(self._vocab.get_default_index())
 
         batch.ctx_ids.append(ctx)
 
@@ -214,9 +221,15 @@ class BatchGenerator(object):
 
     def __len__(self):
         return len(self._noise_generator)
-
+        
     def start(self):
-        self._queue = multiprocessing.Queue()
+        # Starts the batch generator 
+        # This function spawns a set of workers, each tasked with 
+        # creating batches of input data to feed in the paragraph-vector model.
+        # The workers store those batches in a process-safe event queue 
+        # The training loop shall sample batches from the queue.
+
+        self._queue = multiprocessing.Queue(maxsize=self.max_size)
         self._stop_event = multiprocessing.Event()
 
         for _ in range(self.num_workers):
@@ -226,6 +239,7 @@ class BatchGenerator(object):
             worker.start()
     
     def _work(self):
+        # The worker loop that generates batches and puts them in the queue
         while not self._stop_event.is_set():
             try:
                 batch = self._noise_generator.forward()
@@ -241,6 +255,9 @@ class BatchGenerator(object):
         return state
     
     def stop(self):
+        # Stops the batch generator by killing all workers
+        # and closing the queue 
+
         if self.is_running():
             self._stop_event.set()
         
@@ -260,5 +277,7 @@ class BatchGenerator(object):
         return self._stop_event is not None and not self._stop_event.is_set()
 
     def forward(self):
+        # The API used by the training algorithm to sample batches 
+        # This function pops a batch from the queue and passes it to the caller 
         while self.is_running():
             yield self._queue.get()

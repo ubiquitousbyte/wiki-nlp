@@ -46,4 +46,4 @@ class DocumentService:
             params = { 'offset': offset, 'limit': limit }
             result_set = await session.execute(query, variable_values=params)   
             for doc in result_set['documents']:
-                yield Document(**doc)            
+                yield Document(**doc)
