@@ -207,35 +207,6 @@ class WikiDataset(dataset.Dataset):
         test_set.vocab = train_set.vocab 
         return test_set
 
-    """def __init__(self, streamer: WikiDataStreamer, num_workers: int):
-        super(WikiDataset, self).__init__()
-        loader = DataLoader(streamer, num_workers=num_workers)
-        self.counter = Counter()
-        self._examples = []
-
-        for i, doc in enumerate(loader):
-            doc_id = doc['id'][0]
-            self._examples.append(WikiExample(id=doc_id, text=[d[0] for d in doc['text'] if d]))
-            self.counter.update(self._examples[i].text)
-
-        # Discard infrequent words. 
-        # They do not obtain meaningful representations 
-        # due to their infrequency.
-        # This means that they only add noise to the training set 
-        # that may even cause overfitting. 
-        for example in self._examples:
-            t = example.text.copy()
-            example.text = []
-            for w in t:
-                if self.counter[w] >= 3:
-                    example.text.append(w)
-                else:
-                    del self.counter[w]
-
-        # Construct the vocabulary
-        self.vocab = vocab(OrderedDict(self.counter.items()), min_freq=3)
-        self.vocab.set_default_index(len(self.vocab))"""
-
 def load_dataset(reader: ReaderCallback, start: int = 0, end: int = 2561) -> WikiDataset:
     streamer = WikiDataStreamer(start=start, end=end, reader=reader)
     return WikiDataset.from_document_streamer(streamer)
