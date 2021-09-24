@@ -1,4 +1,4 @@
-from typing import Tuple 
+from typing import Tuple, Union 
 
 import torch
 from torch.optim import SGD 
@@ -7,7 +7,13 @@ from torch.nn.functional import cosine_similarity
 from wiki_nlp.models.train import run_loaded_dm
 from wiki_nlp.models.batch_generator import BatchGenerator
 from wiki_nlp.models.dm import DM 
+from wiki_nlp.data.domain import (
+    Document,
+    Section,
+    Paragraph
+)
 from wiki_nlp.data.dataset import (
+    TextPreprocessor,
     WikiDataset, 
     WikiExample
 )
@@ -31,9 +37,32 @@ class DMService:
 
     def __init__(self, model_state_path: str, dataset_path: str):
         self._dataset = torch.load(dataset_path)
-        self._model, self._optimizer, self._epochs = load_dm_infer_model(model_state_path, self._dataset)
+        self._model, self._optimizer, self._epochs= load_dm_infer_model(model_state_path, self._dataset)
+        self._preprocessor = TextPreprocessor()
 
-    def infer_vector(self, document: WikiExample) -> torch.FloatTensor:
+    def _create_example_from_domain(self, doc: Union[Document, Section, Paragraph]) -> WikiExample:
+        example = WikiExample(id=doc.id, text=[])
+
+        if isinstance(doc, Document):
+            text = self._preprocessor.tokenize_document(doc)
+        elif isinstance(doc, Section):
+            text = self._preprocessor.tokenize_section(doc)
+        elif isinstance(doc, Paragraph):
+            text = self._preprocessor.tokenize_paragraph(doc)
+        else:
+            raise ValueError("Document must be of type Document, Section or Paragraph")
+
+        # Discard words that do not appear in the vocabulary
+        for w in text:
+            if w in self._dataset.vocab:
+                example.text.append(w)
+        return example 
+
+    def infer_vector(self, doc: Union[Document, Section, Paragraph]) -> torch.FloatTensor:
+        example = self._create_example_from_domain(doc)
+        return self._infer_vector(example)
+
+    def _infer_vector(self, example: WikiExample) -> torch.FloatTensor:
         # Create a vector for the document 
         d = torch.randn(1, self._model._D.size()[1])
 
@@ -44,7 +73,7 @@ class DMService:
         # The dataset will hold only the document for which
         # we'd like to infer a vector.
         # However, it must also contain the vocabulary of the training set
-        test_set = WikiDataset.create_test_set(self._dataset, [document])
+        test_set = WikiDataset.create_test_set(self._dataset, [example])
 
         # Create the batch generator
         batch_generator = BatchGenerator(
@@ -85,14 +114,3 @@ class DMService:
         ms = torch.topk(dists, topn)
         # Return the distances and the indices of the most similar documents
         return ms.values, ms.indices
-        
-if __name__ == '__main__':
-    dm_service = DMService(
-        model_state_path="document_dm_state",
-        dataset_path="document_dataset"
-    )
-    vec = dm_service.infer_vector(dm_service._dataset[1400])
-    dists, indices = dm_service.most_similar(vec, topn=10)
-    print(dm_service._dataset[1400])
-    for i, dist in enumerate(dists):
-        print(f"{dist.item()}\n {dm_service._dataset[indices[i].item()]}")
