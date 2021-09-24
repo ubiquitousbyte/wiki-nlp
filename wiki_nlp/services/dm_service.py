@@ -77,10 +77,13 @@ class DMService:
         self._model._D.data = self._model._D[1:, :].data
         return vec 
 
-    def most_similar(self, vector: torch.FloatTensor, topn=10):
+    def most_similar(self, vector: torch.FloatTensor, topn=10) -> Tuple[torch.FloatTensor, torch.IntTensor]:
         D = self._model._D.data.clone().detach()
+        # Compute the cosine similarity between the document matrix and the target vector 
         dists = cosine_similarity(D,  vector.unsqueeze(0))
+        # Extract the topn most similar documents from the document matrix
         ms = torch.topk(dists, topn)
+        # Return the distances and the indices of the most similar documents
         return ms.values, ms.indices
         
 if __name__ == '__main__':
