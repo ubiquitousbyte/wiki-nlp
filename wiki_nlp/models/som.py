@@ -67,7 +67,6 @@ class SOM(nn.Module):
         # x_size defines the lattice's span across the x-axis 
         # y_size defines the lattice's span across the y-axis
         # w_size defines the input size
-        # The weights are a public variable to avoid redundant copies from functions 
         self._W = nn.Parameter(
             torch.randn(x_size, y_size, w_size), requires_grad=False
         )
@@ -83,8 +82,8 @@ class SOM(nn.Module):
     def forward(self, x, time_step):
         # Competitive process
         # The winner neuron is the one which resembles the input the most 
-        # Find the winner by calculating the manhattan distance of all neurons to the input
-        d = torch.linalg.norm(x - self._W, ord=1, dim=-1)
+        # Find the winner by calculating the euclidean distance of all neurons to the input
+        d = torch.linalg.norm(x - self._W, ord=2, dim=-1)
         winner = np.unravel_index(torch.argmin(d), d.size())
 
         # Cooperative process 
@@ -92,7 +91,7 @@ class SOM(nn.Module):
         # that assigns high probabilities to the winner's neighbouring neurons 
         h = self._neigh.forward(self._GX, self._GY, winner, time_step)
 
-        return h
+        return h, winner 
 
     def backward(self, x, h, time_step):
         # Adaptive process 
@@ -100,9 +99,3 @@ class SOM(nn.Module):
         alpha = self._alpha_decay.forward(time_step)
         f = alpha * h
         self._W += torch.einsum('ij,ijk->ijk', f, x - self._W) 
-
-if __name__ == '__main__':
-    s = SOM(10, 10, 4)
-    x = torch.tensor([1, 2, 3, 4], dtype=torch.float)
-    h = s.forward(x, 1)
-    s.backward(x, h, 1)

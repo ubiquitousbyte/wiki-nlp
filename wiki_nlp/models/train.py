@@ -3,12 +3,15 @@ from typing import (
     Generator, 
     Optional
 )
+from collections import defaultdict
+import json 
 
 import torch
 from torch.optim import SGD
 
 from wiki_nlp.models.batch_generator import BatchGenerator 
 from wiki_nlp.models.dm import DM
+from wiki_nlp.models.som import SOM 
 from wiki_nlp.models.ngloss import NegativeSamplingLoss
 from wiki_nlp.data.dataset import (
     WikiDataset, 
@@ -100,27 +103,29 @@ def _run_dm(
         optimizer, 
         batch_count, 
         epochs, 
-        state_path
+        state_path=state_path
     )
 
-if __name__ == '__main__':
-    dataset = torch.load("paragraph_dataset")
-    batch_generator = BatchGenerator(
-        dataset=dataset,
-        batch_size=128,
-        ctx_size=3,
-        noise_size=5,
-        max_size=5,
-        num_workers=1
-    )
-    batch_generator.start()
-    try:
-        _run_dm(
-            dataset=dataset,
-            batch_generator=batch_generator.forward(),
-            batch_count=len(batch_generator),
-            vocab_size=len(dataset.vocab),
-            state_path="paragraph_dm_state"
-        )
-    except KeyboardInterrupt:
-        batch_generator.stop()
+def _run_som(
+    x: torch.FloatTensor,
+    gx_size: int,
+    gy_size: int, 
+    epochs: int = 500, 
+):
+    activation_map = defaultdict(tuple)
+    model = SOM(x_size=gx_size, y_size=gy_size, w_size=x.size()[1])
+    for i in range(0, epochs):
+        for j, s in enumerate(x):
+            neigh, winner = model.forward(s, i)
+            activation_map[j] = (int(winner[0]), int(winner[1])) 
+            model.backward(s, neigh, i)
+    return activation_map
+
+#if __name__ == '__main__':
+    #model_state = torch.load("document_dm_state")
+    #model = DM(embedding_dim=100, n_docs=len(dataset), n_words=len(dataset.vocab))
+    #model.load_state_dict(model_state['model_state_dict'])
+    #x = model._D[:-1].detach()
+    #activation_map = _run_som(x, 25, 25)
+    #with open("activation_map.json", mode='w') as fobj:
+    #    json.dump(activation_map, fobj)
