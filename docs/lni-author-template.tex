@@ -8,7 +8,7 @@
 \usepackage{float}
 \usepackage{mathtools}
 %\newcommand{\argmax}{\operatornamewithlimits{arg\,max}}
-%\newcommand{\argmin}{\operatornamewithlimits{arg\,min}}
+\newcommand{\argmin}{\operatornamewithlimits{arg\,min}}
 
 \defbibfilter{bookorarticleormisc}{%
     \type{book} \or \type{article} \or \type{misc}
@@ -17,7 +17,8 @@
 
 \begin{document}
 
-\title[Word and Document Embeddings]{Word and Document Embeddings}
+\title[Clustering Document Embeddings via a Multilayered Self-Organizing Map]
+{Clustering Document Embeddings via a Multilayered Self-Organizing Map}
 \author[Atanas Denkov]
 {Atanas Denkov\footnote{Hochschule für Technik und Wirtschaft, Angewandte Informatik, Wilhelminenhofstr., 12459 Berlin,
 Germany \email{s0559025@htw-berlin.de}}}
@@ -268,6 +269,95 @@ Given is an unseen document $d$. A randomly-initialized vector is added to our m
 That vector represents the document vector for $d$. 
 The vector for $d$ is updated by gradient descending on $\textbf{D}$ for $i$ epochs while keeping $\textbf{W}$, $\textbf{W'}$ and their gradients fixed.
 The number of epochs to descent on $d$ should match the number of epochs used during training. 
+\clearpage
+\section{Self-Organizing Maps}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\textwidth]{images/kohonen-model.png}
+    \caption{An image showing the connection between the input data and the neurons of a self-organizing map.
+            Each input is connected to all of the neurons in the lattice. 
+            The neurons compete among each other and the neuron that resembles the input the most is 
+            marked as the winner neuron. After multiple iterations,
+            the lattice will reflect the feature topology of the inputs.}
+    \label{fig:kohonen-model}
+\end{figure}
+Self-organizing maps are a special kind of artificial neural networks. 
+They provide the means for clustering and visualsiing highly-dimensional data, e.g document vectors.\\
+In a self-organizing map, neurons are placed at the nodes of a \textit{lattice} that is 
+typically two dimensional. 
+The neurons selectively adapt to the input data during a \textit{competitive learning} procedure.
+The locations of the neurons on the aforementioned lattice become ordered in such a way 
+that the lattice represents a coordinate system for different input features. 
+In other words, the coordinates of the neurons in the lattice represent 
+the statistical features contained in the input patterns. 
+For this reason, the neurons of the map are said to
+\textit{self-organize} onto the input data.\\
+The algorithm first initializes the weights of the network. Small values 
+picked from a random-number generator ensure that no prior order is imposed 
+on the lattice. Once initialized, three processes create the map:
+\begin{itemize}
+    \item \textbf{Competition}. For every input pattern, the neurons in the network 
+    compute their values of a function that is used as the basis for competition 
+    among the neurons. The neuron that yields the largest value is declared 
+    winner of the competition 
+    \item \textbf{Cooperation}. The winning neuron determines the coordinates of its neighbouring
+    neurons on the lattice and allows them to become partially activated as well. 
+    \item \textbf{Neuron adaptation}. The winner neuron and its neighbours 
+    are adjusted such that their probability of being activated once a similar 
+    input pattern is plugged into the model is increased.  
+\end{itemize}
+
+\subsection{Competition}
+Let $m$ denote the dimension of the input space.
+We select a data sample from the input space and denote it by
+\begin{equation}
+    \mathbf{x} = [x_{1}, x_{2}, \hdots, x_{m}]^{T}.
+\end{equation}
+Let $G \in \mathbb{N}^{w \times h \times m}$ represent a rectangular lattice of neurons where $w$ and $h$ denote the width and height of the lattice, respectively.
+The neuron at position $(w, h)$ in the lattice has a weight vector denoted by 
+\begin{equation}
+    \mathbf{w}_{w, h} = [w_{1}, w_{2}, \hdots, w_{m}]^{T}.
+\end{equation}
+To find the best matching neuron relative to the input vector $\mathbf{x}$, we 
+compute the euclidean distance between each neuron and $x$;
+\begin{equation}
+    c(\mathbf{x}) = \argmin_{(i, j)}{\| \mathbf{x} - \mathbf{w}_{i, j}\|},  \:
+    i \in {1, 2, \hdots, w},  \:
+    j \in {1, 2, \hdots, h}
+\end{equation}
+The neuron with the smallest
+distance is deemed the winner of the competition phase. 
+${c(\mathbf{x})}$ is a tuple containing the $(x,y)$-coordinates of the winner 
+neuron in the lattice for the input sample $\mathbf{x}$. 
+\subsection{Cooperation}
+The winning neuron locates the center of a neighbourhood of cooperating neurons.
+Whenever a neuron is activated by winning the competition, its neighbouring neurons 
+will also be activated. This property stems from the human brain, where lateral 
+interactions among a set of excited neurons is quite common.\\
+Let $h_{j, c(\mathbf{x})}$ denote the neighbourhood centered around the winning 
+neuron $c(\mathbf{x})$ and encompassing a set of cooperating neurons, one of which 
+is denoted by $j$. 
+Let $d_{j, c(\mathbf{x})}$ denote the coordinate distance between neurons $j$ and $c(\mathbf{x})$
+in the lattice. 
+Then, the neighbourhood must satisfy the following restrictions:
+\begin{itemize}
+    \item The maximum value for $h_{j, c(\mathbf{x})}$ must be attained 
+    at the position for which the distance $d_{j, c(\mathbf{x})} = 0$.
+    \item The value of $h_{j, c(\mathbf{x})}$ should decrease as 
+    the distance $d_{j, c(\mathbf{x})}$ increases. 
+\end{itemize}
+These requirements are satisfied by the \textit{Gaussian function}
+\begin{equation}
+    h_{j, c(\mathbf{x})} = \exp({-\frac{{d_{j, c(\mathbf{x})}^{2}}}{2\sigma^{2}}}).
+\end{equation}
+The parameter $\sigma$ is the width of the neighbourhood and represents 
+a metric for the degree of participance of all neurons that are spatially close 
+to the winning neuron. 
+The distance function is defined in terms of the output space as 
+\begin{equation}
+    d_{j, c(\mathbf{x})} = \|j-c(\mathbf{x})\|^{2}.
+\end{equation}
+\subsection{Neuron adaptation}
 
 %\printbibliography[heading=bibintoc, filter={bookorarticleormisc}, title={Scientific references}]
 %\printbibliography[heading=bibintoc, keyword={online}, title={Online references}]\clearpage
