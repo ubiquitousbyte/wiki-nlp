@@ -319,8 +319,9 @@ The neuron at position $(w, h)$ in the lattice has a weight vector denoted by
     \mathbf{w}_{w, h} = [w_{1}, w_{2}, \hdots, w_{m}]^{T}.
 \end{equation}
 To find the best matching neuron relative to the input vector $\mathbf{x}$, we 
-compute the euclidean distance between each neuron and $x$;
+compute the Euclidean distance between each neuron and $x$;
 \begin{equation}
+    \label{eq:min-dist}
     c(\mathbf{x}) = \argmin_{(i, j)}{\| \mathbf{x} - \mathbf{w}_{i, j}\|},  \:
     i \in {1, 2, \hdots, w},  \:
     j \in {1, 2, \hdots, h}
@@ -351,13 +352,68 @@ These requirements are satisfied by the \textit{Gaussian function}
     h_{j, c(\mathbf{x})} = \exp({-\frac{{d_{j, c(\mathbf{x})}^{2}}}{2\sigma^{2}}}).
 \end{equation}
 The parameter $\sigma$ is the width of the neighbourhood and represents 
-a metric for the degree of participance of all neurons that are spatially close 
-to the winning neuron. 
+the size of the topological neighbourhood, which is defined as the spread of 
+the gaussian function. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\textwidth]{images/som-neigh.png}
+    \caption{The gaussian neighbourhood function. $\sigma$ controls the 
+    size of the neighbourhood. Note that the peak of the bell curve maps to all neurons 
+    whose distance to the winner is 0. In other words, neurons that have large distances 
+    to the winner have low probabilities of being activated.}
+    \label{fig:som-neigh}
+\end{figure}
 The distance function is defined in terms of the output space as 
 \begin{equation}
-    d_{j, c(\mathbf{x})} = \|j-c(\mathbf{x})\|^{2}.
+    d_{j, c(\mathbf{x})}^{2} = \|j-c(\mathbf{x})\|^{2}.
 \end{equation}
+We further shrink the size of the topological neighbourhood with time. 
+This invariant is satisfied by making $h_{j, c(\mathbf{x})}$ decrease with time.
+We redefine $\sigma$ as an \textit{exponential decay} function 
+\begin{equation}
+    \sigma(n) = \sigma_{0}\exp({-\frac{n}{t_{1}}})
+\end{equation}
+and redefine $h_{j, c(\mathbf{x})}$ as 
+\begin{equation}
+    h_{j, c(\mathbf{x})}(n) = \exp({-\frac{{d_{j, c(\mathbf{x})}^{2}}}{2\sigma^{2}(n)}}).
+\end{equation}
+Thus, as the number of iterations (defined by $n$) increases, the width of the 
+gaussian density (see Figure \ref{fig:som-neigh}) decreases at an exponential rate.
+Decreasing the width of the neighbourhood ensures that neurons without any significant relationship in the input space 
+are not influenced by each other in the output space. 
 \subsection{Neuron adaptation}
+The adaptive process is responsible for changing the weight vector $\mathbf{w}_{i, j}$ 
+of neuron $(i, j)$ in relation to the input vector $\mathbf{x}$. The update rule 
+for neuron $(i, j)$ at iteration $n$ is defined as
+\begin{equation}
+    \label{eq:som-update}
+    \mathbf{w}_{i, j}(n + 1) = \mathbf{w}_{i, j}(n) + \eta(n)h_{j, c(\mathbf{x})}(n)(\mathbf{x}(n)-\mathbf{w}_{i, j}(n)).
+\end{equation}
+We can see that the probabilities produced by $h_{j, c(\mathbf{x})}$ effectively 
+cancel out any updates to neurons that are not part of the neighbourhood of the winner, because in that case 
+$h_{j, c(\mathbf{x})} = 0$ and therefore $\mathbf{w}_{i, j}(n + 1) = \mathbf{w}_{i, j}(n)$.\\
+The learning-rate parameter $\eta(n)$ is also defined as a function of time.
+It starts at some initial value $\eta_{0}$ and decreases gradually with 
+increasing time $n$. This requirement is satisfied via the following heuristic function 
+\begin{equation}
+    \eta(n) = \eta_{0}\exp({-\frac{n}{t_{2}}}).
+\end{equation}
+\subsection{Summary}
+The algorithm is summarized as follows:
+\begin{itemize}
+    \item \textbf{Initialization}. Choose random values for the initial weight vectors 
+    $\mathbf{w}_{i, j}(0)$.
+    \item \textbf{Sampling}. Draw a sample $\mathbf{x} \in \mathbb{R}^{m}$ from the input space.
+    \item \textbf{Similarity matching}. Find the best-matching neuron $c(\mathbf{x})$ at 
+    time-step $n$ by using the minimum-distance criterion specified in Equation \ref{eq:min-dist}.
+    \item \textbf{Update}. Adjust the weight vectors for all excited neurons by using 
+    Equation \ref{eq:som-update} 
+    \item \textbf{Continuation}. Continue with step 2 until no noticeable changes in the feature map are observed. 
+\end{itemize}
+\clearpage
+\section{Self-organizing Document Embeddings for Plagiarism Detection}
+\subsection{Implementation}
+\subsection{Evaluation}
 
 %\printbibliography[heading=bibintoc, filter={bookorarticleormisc}, title={Scientific references}]
 %\printbibliography[heading=bibintoc, keyword={online}, title={Online references}]\clearpage
