@@ -116,8 +116,9 @@ def _run_som(
     x: torch.FloatTensor,
     gx_size: int,
     gy_size: int,
-    epochs: int = 5000,
-    verbose: bool = True
+    epochs: int = 500,
+    verbose: bool = True,
+    state_path: Optional[str] = None
 ):
     quant_errors = []
     activation_map = defaultdict(tuple)
@@ -127,7 +128,19 @@ def _run_som(
             neigh, winner = model.forward(s, i)
             activation_map[j] = (int(winner[0]), int(winner[1]))
             model.backward(s, neigh, i)
-        quant_errors.append(model.quantization_error(x))
+
+        qerr = model.quantization_error(x)
+        quant_errors.append(qerr)
+        if verbose:
+            print(f"Epoch {i}: {qerr}")
+
+    if state_path is not None:
+        state = {
+            'model_state_dict': model.state_dict(),
+            'epoch': epochs,
+            'quantization_error': quant_errors[-1]
+        }
+        save_state(state, True, state_path)
 
     return activation_map, quant_errors
 
@@ -139,5 +152,4 @@ if __name__ == '__main__':
         dataset), n_words=len(dataset.vocab))
     model.load_state_dict(model_state['model_state_dict'])
     x = model._D[:-1].detach()
-    print(x.size())
-    _ = _run_som(x, 25, 25)
+    _ = _run_som(x, 25, 25, state_path="document_som_state")
