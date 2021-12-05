@@ -48,6 +48,29 @@ class GaussianNeigh(nn.Module):
         return h
 
 
+class QuantizationLoss(nn.Module):
+    # Sums the distances between the nodes of a SOM and the data points.
+    # The larger the sum, the more disproportional the mapping between
+    # the input and the output space.
+
+    def __init__(self):
+        super(QuantizationLoss, self).__init__()
+
+    def _weight_dist(self, x, w):
+        wf = w.reshape(-1, w.size()[2])
+        xsq = torch.sum(torch.pow(x, 2), dim=1, keepdim=True)
+        wfsq = torch.sum(torch.pow(wf, 2), dim=1, keepdim=True)
+        ct = torch.matmul(x, wf.T)
+        return torch.sqrt(-2 * ct + xsq + wfsq.T)
+
+    def _quantize(self, x, w):
+        winners = torch.argmin(self._weight_dist(x, w), dim=1)
+        return w[np.unravel_index(winners, w.size()[:2])]
+
+    def forward(self, x, w):
+        return torch.mean(torch.norm(x-self._quantize(x, w), dim=1))
+
+
 class SOM(nn.Module):
     # A self-organizing map used for clustering and visualising document vectors
     # This implementation is inspired by the book
@@ -107,3 +130,7 @@ class SOM(nn.Module):
         alpha = self._alpha_decay.forward(time_step)
         f = alpha * h
         self._W += torch.einsum('ij,ijk->ijk', f, x - self._W)
+
+    def quantization_error(self, x):
+        qloss = QuantizationLoss()
+        return qloss.forward(x, self._W)
