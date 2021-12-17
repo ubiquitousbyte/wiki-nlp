@@ -28,8 +28,8 @@ def run_loaded_dm(
     epochs: int = 140,
     state_path: Optional[str] = None
 ):
-    if torch.cuda.is_available():
-        model.cuda()
+    # if torch.cuda.is_available():
+    #    model.cuda()
 
     loss_func = NegativeSamplingLoss()
 
@@ -43,8 +43,8 @@ def run_loaded_dm(
         for batch_idx in range(batch_count):
             # Sample a batch from the generator
             batch = next(batch_generator)
-            if torch.cuda.is_available():
-                batch.cudify()
+            # if torch.cuda.is_available():
+            #    batch.cudify()
 
             # Forward pass
             x = model.forward(batch.ctx_ids, batch.doc_ids, batch.tn_ids)

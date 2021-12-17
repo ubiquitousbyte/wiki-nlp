@@ -36,7 +36,16 @@ def _load_dm_infer_model(
     return model, optimizer, model_state['epoch']
 
 
-class DMService:
+class IDMService:
+
+    def infer_vector(self, doc: Union[Document, Section, Paragraph]) -> torch.FloatTensor:
+        pass
+
+    def most_similar(self, vector: torch.FloatTensor, topn=10) -> Tuple[torch.FloatTensor, torch.IntTensor]:
+        pass
+
+
+class DMService(IDMService):
 
     def __init__(self, model_state_path: str, dataset_path: str):
         self._dataset = torch.load(dataset_path)
