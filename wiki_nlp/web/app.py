@@ -1,6 +1,3 @@
-from wiki_nlp.web import dependencies
-
-
 if __name__ == '__main__':
     from fastapi import (
         FastAPI,
