@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -106,6 +106,10 @@ class SOM(nn.Module):
         self._GX, self._GY = torch.meshgrid(
             torch.arange(x_size), torch.arange(y_size))
 
+    def grid_size(self) -> Tuple[int, int]:
+        x, y, _ = self._W.size()
+        return int(x), int(y)
+
     def winner(self, x):
         d = torch.linalg.norm(x - self._W, ord=2, dim=-1)
         winner = np.unravel_index(torch.argmin(d), d.size())
@@ -132,5 +136,8 @@ class SOM(nn.Module):
         self._W += torch.einsum('ij,ijk->ijk', f, x - self._W)
 
     def quantization_error(self, x):
+        # Compute the average distance between all input samples and their
+        # respective winners.
+        # This is a local measure of the model's predictive abilities.
         qloss = QuantizationLoss()
         return qloss.forward(x, self._W)

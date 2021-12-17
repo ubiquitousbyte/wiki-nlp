@@ -19,7 +19,7 @@ from wiki_nlp.data.dataset import (
 )
 
 
-def load_dm_infer_model(
+def _load_dm_infer_model(
     model_state_path: str,
     dataset: WikiDataset,
     embedding_size: int = 100
@@ -40,7 +40,7 @@ class DMService:
 
     def __init__(self, model_state_path: str, dataset_path: str):
         self._dataset = torch.load(dataset_path)
-        self._model, self._optimizer, self._epochs = load_dm_infer_model(
+        self._model, self._optimizer, self._epochs = _load_dm_infer_model(
             model_state_path, self._dataset)
         self._preprocessor = TextPreprocessor()
 
@@ -62,6 +62,9 @@ class DMService:
             if w in self._dataset.vocab:
                 example.text.append(w)
         return example
+
+    def __getitem__(self, index) -> WikiExample:
+        return self._dataset[index]
 
     def infer_vector(self, doc: Union[Document, Section, Paragraph]) -> torch.FloatTensor:
         example = self._create_example_from_domain(doc)

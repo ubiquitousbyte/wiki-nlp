@@ -116,7 +116,7 @@ def _run_som(
     x: torch.FloatTensor,
     gx_size: int,
     gy_size: int,
-    epochs: int = 500,
+    epochs: int = 5000,
     verbose: bool = True,
     state_path: Optional[str] = None
 ):
@@ -138,7 +138,8 @@ def _run_som(
         state = {
             'model_state_dict': model.state_dict(),
             'epoch': epochs,
-            'quantization_error': quant_errors[-1]
+            'quantization_error': quant_errors[-1],
+            'activation_map': activation_map,
         }
         save_state(state, True, state_path)
 
@@ -146,10 +147,10 @@ def _run_som(
 
 
 if __name__ == '__main__':
-    dataset = torch.load("document_dataset")
-    model_state = torch.load("document_dm_state")
+    dataset = torch.load("paragraph_dataset")
+    model_state = torch.load("paragraph_dm_state")
     model = DM(embedding_dim=100, n_docs=len(
         dataset), n_words=len(dataset.vocab))
     model.load_state_dict(model_state['model_state_dict'])
     x = model._D[:-1].detach()
-    _ = _run_som(x, 25, 25, state_path="document_som_state")
+    _ = _run_som(x, 64, 64, state_path="paragraph_som_state")
